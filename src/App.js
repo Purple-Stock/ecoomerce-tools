@@ -3,7 +3,14 @@ import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 
 function App() {
-  const [statusCounts, setStatusCounts] = useState(null);
+  const [statusData, setStatusData] = useState(null);
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
 
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -19,19 +26,26 @@ function App() {
 
       const header = jsonData[1];
       const statusIndex = header.findIndex(col => col === 'Status do pedido');
+      const priceIndex = header.findIndex(col => col === 'Preço do produto');
 
-      if (statusIndex !== -1) {
-        const statusData = jsonData.slice(2).map(row => row[statusIndex]);
-        const counts = statusData.reduce((acc, status) => {
+      if (statusIndex !== -1 && priceIndex !== -1) {
+        const statusData = jsonData.slice(2).reduce((acc, row) => {
+          const status = row[statusIndex];
+          const price = parseFloat(row[priceIndex]) || 0;
+          
           if (status) {
-            acc[status] = (acc[status] || 0) + 1;
+            if (!acc[status]) {
+              acc[status] = { count: 0, totalPrice: 0 };
+            }
+            acc[status].count += 1;
+            acc[status].totalPrice += price;
           }
           return acc;
         }, {});
 
-        setStatusCounts(counts);
+        setStatusData(statusData);
       } else {
-        alert('Status do pedido column not found!');
+        alert('Required columns not found!');
       }
     };
 
@@ -59,7 +73,7 @@ function App() {
             <input {...getInputProps()} />
             <div className="space-y-1 text-center">
               <svg
-                className="mx-auto h-8 w-8 text-gray-400" // Changed from h-12 w-12 to h-8 w-8
+                className="mx-auto h-8 w-8 text-gray-400"
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 48 48"
@@ -85,9 +99,9 @@ function App() {
             </div>
           </div>
 
-          {statusCounts && (
+          {statusData && (
             <div className="mt-8 overflow-x-auto">
-              <h2 className="text-2xl font-semibold mb-4 text-gray-900">Order Status Counts</h2>
+              <h2 className="text-2xl font-semibold mb-4 text-gray-900">Order Status Summary</h2>
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -97,16 +111,22 @@ function App() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Count
                     </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Price
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(statusCounts).map(([status, count]) => (
+                  {Object.entries(statusData).map(([status, data]) => (
                     <tr key={status}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {status}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {count}
+                        {data.count}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatCurrency(data.totalPrice)}
                       </td>
                     </tr>
                   ))}
